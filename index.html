@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Spin Wheel</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --wheel-border: #ffffff;
+            --pointer-color: #ff3b30;
+            --text-color: #ffffff;
+            --accent-color: #00d4ff;
+            --panel-bg: #1e1e1e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- MAIN VIEW (THE STAGE) --- */
+        .stage-container {
+            height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .wheel-wrapper {
+            position: relative;
+            width: 90vw;
+            max-width: 500px;
+            aspect-ratio: 1/1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), 0 0 50px rgba(0, 212, 255, 0.2);
+            transition: transform 0.1s ease-out; /* Helper for smoothness if needed */
+        }
+
+        /* The Pointer */
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 50px;
+            background: var(--pointer-color);
+            clip-path: polygon(50% 100%, 0 0, 100% 0);
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+        }
+
+        /* Center Hub */
+        .center-hub {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #333;
+            border: 4px solid var(--accent-color);
+        }
+
+        /* Spin Button */
+        .spin-btn {
+            padding: 15px 60px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: white;
+            background: linear-gradient(45deg, #ff0055, #ff3300);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(255, 0, 85, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            outline: none;
+            user-select: none;
+            letter-spacing: 2px;
+            margin-top: 20px;
+        }
+
+        .spin-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 5px rgba(255, 0, 85, 0.4);
+        }
+
+        .spin-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Result Text */
+        .result-display {
+            margin-top: 20px;
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            min-height: 60px;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .result-display.show {
+            opacity: 1;
+        }
+
+        /* --- SPACER (The "Hidden" Logic) --- */
+        .spacer {
+            height: 1500px;
+            width: 100%;
+            background: repeating-linear-gradient(
+                45deg,
+                #121212,
+                #121212 10px,
+                #161616 10px,
+                #161616 20px
+            );
+            border-top: 1px solid #333;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #444;
+            font-size: 2rem;
+            font-weight: bold;
+            opacity: 0.3;
+        }
+
+        /* --- ADMIN PANEL --- */
+        .admin-panel {
+            width: 90%;
+            max-width: 800px;
+            background: var(--panel-bg);
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 50px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+
+        .admin-panel h2 {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            color: var(--accent-color);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #ccc;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent-color);
+            color: #000;
+        }
+        .btn-primary:hover { background: #00b8dd; }
+
+        .btn-secondary {
+            background: #444;
+            color: white;
+        }
+        .btn-secondary:hover { background: #555; }
+
+        .note {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- LAYER ATAS: TAMPILAN USER -->
+    <div class="stage-container">
+        
+        <div class="wheel-wrapper">
+            <div class="pointer"></div>
+            <canvas id="wheelCanvas" width="800" height="800"></canvas>
+            <div class="center-hub"></div>
+        </div>
+
+        <div class="result-display" id="resultDisplay">Siap Putar!</div>
+
+        <button class="spin-btn" id="spinButton">SPIN</button>
+
+    </div>
+
+    <!-- JARAK PEMISAH (Supaya settings tersembunyi) -->
+    <div class="spacer">
+        SCROLL KE BAWAH UNTUK PENGATURAN
+    </div>
+
+    <!-- LAYER BAWAH: PENGATURAN -->
+    <div class="admin-panel">
+        <h2>Pengaturan Roda (Admin)</h2>
+        
+        <div class="form-group">
+            <label for="itemsInput">Daftar Elemen (Pisahkan dengan koma):</label>
+            <textarea id="itemsInput" class="form-control" rows="4">Hadiah Besar, Hadiah Kecil, Bonus, Zonkk, Extra Spin, Jackpot</textarea>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-primary" id="updateWheelBtn">Update Roda</button>
+            <button class="btn btn-secondary" id="resetBtn">Reset Default</button>
+        </div>
+
+        <div style="margin-top: 30px;"></div>
+
+        <div class="form-group">
+            <label for="forcedResult">Set Hasil Spin (Rigging):</label>
+            <select id="forcedResult" class="form-control">
+                <!-- Opsi akan diisi oleh JS -->
+            </select>
+            <div class="note">Pilih "Acak (Fair)" untuk hasil random murni. Jika memilih item lain, roda PASTI berhenti di situ.</div>
+        </div>
+    </div>
+
+<script>
+    /**
+     * LOGIKA WHEEL SPIN
+     * Menggunakan HTML5 Canvas dan RequestAnimationFrame untuk animasi halus.
+     */
+
+    // --- VARIABEL & KONFIGURASI ---
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const spinButton = document.getElementById('spinButton');
+    const resultDisplay = document.getElementById('resultDisplay');
+    
+    // Input Elements
+    const itemsInput = document.getElementById('itemsInput');
+    const updateWheelBtn = document.getElementById('updateWheelBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const forcedResultSelect = document.getElementById('forcedResult');
+
+    // State
+    let segments = [];
+    let currentAngle = 0; // Sudut saat ini dalam radian
+    let isSpinning = false;
+    let spinVelocity = 0;
+    let spinDeceleration = 0.985; // Seberapa cepat melambat (semakin mendekati 1, semakin lama)
+    let animationId = null;
+    
+    // Warna untuk segmen (Palette Modern)
+    const colors = [
+        '#FF3B30', // Red
+        '#FF9500', // Orange
+        '#FFCC00', // Yellow
+        '#4CD964', // Green
+        '#5AC8FA', // Light Blue
+        '#007AFF', // Blue
+        '#5856D6', // Purple
+        '#FF2D55'  // Pink
+    ];
+
+    // --- INISIALISASI ---
+
+    function init() {
+        parseSegments();
+        drawWheel();
+        updateDropdown();
+        
+        // Event Listeners
+        spinButton.addEventListener('click', startSpin);
+        updateWheelBtn.addEventListener('click', () => {
+            parseSegments();
+            drawWheel();
+            updateDropdown();
+            alert("Roda diperbarui!");
+        });
+        resetBtn.addEventListener('click', () => {
+            itemsInput.value = "Hadiah Besar, Hadiah Kecil, Bonus, Zonkk, Extra Spin, Jackpot";
+            parseSegments();
+            drawWheel();
+            updateDropdown();
+        });
+    }
+
+    // --- FUNGSI LOGIKA DASAR ---
+
+    function parseSegments() {
+        const text = itemsInput.value;
+        segments = text.split(',').map(item => item.trim()).filter(item => item !== "");
+        if (segments.length === 0) segments = ["Error", "No Data"];
+    }
+
+    function updateDropdown() {
+        // Simpan pilihan sebelumnya jika masih ada
+        const currentSelection = forcedResultSelect.value;
+
+        forcedResultSelect.innerHTML = '<option value="random">--- Acak (Fair) ---</option>';
+        segments.forEach((seg, index) => {
+            const option = document.createElement('option');
+            option.value = index; // Kita simpan indexnya
+            option.textContent = seg;
+            forcedResultSelect.appendChild(option);
+        });
+
+        // Restore selection if valid, otherwise default to random
+        if (currentSelection !== "" && currentSelection !== "random" && currentSelection < segments.length) {
+            forcedResultSelect.value = currentSelection;
+        } else {
+            forcedResultSelect.value = "random";
+        }
+    }
+
+    // --- MENGGAMBAR RODA (CANVAS) ---
+
+    function drawWheel() {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 2 - 20; // Padding sedikit
+        const arcSize = (2 * Math.PI) / segments.length;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        // Putar canvas berdasarkan sudut putaran saat ini
+        ctx.translate(centerX, centerY);
+        ctx.rotate(currentAngle);
+        ctx.translate(-centerX, -centerY);
+
+        for (let i = 0; i < segments.length; i++) {
+            const angle = i * arcSize;
+            
+            // Draw Segment
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, angle, angle + arcSize);
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fill();
+            ctx.strokeStyle = "#121212";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Draw Text
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle + arcSize / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 30px Arial";
+            ctx.shadowColor = "rgba(0,0,0,0.8)";
+            ctx.shadowBlur = 4;
+            // Tulis teks, geser sedikit dari pinggir
+            ctx.fillText(segments[i], radius - 40, 10);
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    // --- SISTEM SPINNING (FISIKA & RIGGING) ---
+
+    function startSpin() {
+        if (isSpinning) return;
+
+        isSpinning = true;
+        spinButton.disabled = true;
+        resultDisplay.classList.remove('show');
+        resultDisplay.innerText = "Memutar...";
+
+        // 1. Tentukan target index
+        let targetIndex;
+        const forcedVal = forcedResultSelect.value;
+        
+        if (forcedVal === "random") {
+            targetIndex = Math.floor(Math.random() * segments.length);
+        } else {
+            targetIndex = parseInt(forcedVal);
+        }
+
+        // 2. Hitung Matematika Putaran
+        // Pointer berada di posisi ATAS (270 derajat atau 1.5 PI dalam canvas standard, tapi 
+        // karena canvas start drawing dari 0 (kanan), posisi atas itu -PI/2 atau 270 deg).
+        // Kita ingin segmen target berhenti di posisi -PI/2.
+        
+        const arcSize = (2 * Math.PI) / segments.length;
+        
+        // Sudut tengah segmen target (relatif terhadap 0 roda)
+        const targetSegmentCenter = (targetIndex * arcSize) + (arcSize / 2);
+        
+        // Agar segmen ini ada di atas (-PI/2), roda harus diputar sedemikian rupa.
+        // Rotation + targetSegmentCenter = -PI/2 (plus kelipatan 2PI)
+        // Rotation = -PI/2 - targetSegmentCenter
+        
+        // Tambahkan putaran penuh (misal 5-8 kali putaran penuh) untuk efek visual
+        const fullSpins = 5 + Math.floor(Math.random() * 3); 
+        const extraSpins = fullSpins * 2 * Math.PI;
+
+        // Tambahkan sedikit variasi acak di dalam segmen (+/- 40% dari ukuran segmen)
+        // supaya tidak selalu berhenti tepat di tengah garis
+        const randomOffset = (Math.random() - 0.5) * (arcSize * 0.8);
+
+        // Kalkulasi posisi akhir absolut
+        // Kita menggunakan sistem pengurangan karena canvas rotate positif searah jarum jam
+        // Untuk target ke atas, kita harus memutar balik.
+        
+        // Rumus sederhana: Target Angle Total
+        // Posisi target saat ini + Total Putaran
+        // Kita set target akhir supaya rotasi berhenti tepat.
+        
+        // Posisi 0 canvas = Kanan (Jam 3)
+        // Pointer = Atas (Jam 12) = -PI/2 atau 270 deg
+        
+        // Hitung sudut target yang dibutuhkan:
+        const stopAngle = (3 * Math.PI / 2) - targetSegmentCenter + randomOffset;
+        
+        // Target akhir absolut (harus lebih besar dari currentAngle supaya berputar maju)
+        let finalAngle = currentAngle + extraSpins + (stopAngle - (currentAngle % (2 * Math.PI)));
+        
+        // Koreksi jika kalkulasi mundur
+        if (finalAngle < currentAngle) finalAngle += (2 * Math.PI);
+        // Pastikan putaran minimal banyak
+        while ((finalAngle - currentAngle) < extraSpins) finalAngle += (2 * Math.PI);
+
+        // 3. Animasi
+        const duration = 5000; // 5 detik
+        const startTime = performance.now();
+        const startAngle = currentAngle;
+        const changeInAngle = finalAngle - startAngle;
+
+        function animate(currentTime) {
+            const elapsed = currentTime - startTime;
+            
+            if (elapsed < duration) {
+                // Gunakan fungsi easing easeOutCubic untuk pengereman halus
+                const t = elapsed / duration;
+                const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+                
+                currentAngle = startAngle + (changeInAngle * ease);
+                drawWheel();
+                animationId = requestAnimationFrame(animate);
+            } else {
+                // Selesai
+                currentAngle = finalAngle;
+                drawWheel();
+                isSpinning = false;
+                spinButton.disabled = false;
+                showResult(targetIndex);
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    function showResult(index) {
+        const winner = segments[index];
+        resultDisplay.innerText = "Hasil: " + winner;
+        resultDisplay.classList.add('show');
+        
+        // Efek kedip sederhana pada pointer
+        const pointer = document.querySelector('.pointer');
+        pointer.style.transform = 'translateX(-50%) scale(1.2)';
+        setTimeout(() => {
+            pointer.style.transform = 'translateX(-50%) scale(1)';
+        }, 200);
+    }
+
+    // Jalankan inisialisasi
+    init();
+
+</script>
+
+</body>
+</html>
